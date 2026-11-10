@@ -14,7 +14,7 @@
     body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--text); padding: env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px); }
     header { background:var(--brand); color:#fff; padding:16px; display:flex; justify-content:space-between; align-items:center; }
     header h1 { font-size:20px; margin:0; }
-    main { max-width:520px; margin:0 auto; padding:16px; }
+    main { max-width:560px; margin:0 auto; padding:16px; }
     .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:16px; }
     h2 { font-size:17px; margin:0 0 12px; }
     h3 { font-size:15px; margin:14px 0 8px; color:var(--brand); }
@@ -24,7 +24,7 @@
     button.secondary { background:#fff; color:var(--brand); border:1px solid var(--brand); }
     button.small { width:auto; padding:6px 10px; font-size:13px; margin:0; }
     button:disabled { opacity:.6; }
-    .row { display:flex; gap:10px; }
+    .row { display:flex; gap:10px; align-items:center; }
     .row > * { flex:1; }
     .toggle { display:flex; gap:8px; margin-top:6px; }
     .toggle button { margin:0; background:#fff; color:var(--text); border:1px solid var(--border); }
@@ -32,6 +32,8 @@
     .tabs { display:flex; gap:6px; overflow-x:auto; padding:10px 16px; background:#fff; border-bottom:1px solid var(--border); }
     .tab { width:auto; flex:none; margin:0; background:#fff; color:var(--text); border:1px solid var(--border); padding:8px 12px; font-size:14px; }
     .tab.active { background:var(--brand); color:#fff; border-color:var(--brand); }
+    .monthbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+    .monthbar button { width:auto; margin:0; padding:6px 14px; }
     .stat { display:flex; justify-content:space-between; padding:6px 0; font-size:15px; }
     .stat b { font-variant-numeric: tabular-nums; }
     .income { color:var(--ok); }
@@ -39,13 +41,18 @@
     .entry { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); font-size:14px; gap:8px; }
     .entry:last-child { border-bottom:none; }
     .entry small { color:var(--muted); display:block; }
-    .budget-row { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); }
-    .budget-row input { width:130px; }
+    .bar { height:6px; background:#e6ece9; border-radius:4px; overflow:hidden; margin-top:6px; }
+    .bar > div { height:6px; }
+    .reminder { background:#fff8e1; border:1px solid #f0d48a; border-radius:8px; padding:8px 10px; margin-bottom:6px; font-size:14px; }
+    .toast { font-size:14px; min-height:20px; margin:0 0 12px; color:var(--ok); }
+    .toast.error { color:var(--danger); }
     .msg { font-size:14px; margin-top:10px; min-height:18px; }
     .msg.error { color:var(--danger); }
     .hidden { display:none !important; }
     .muted { color:var(--muted); font-size:14px; }
     .total { font-weight:700; text-align:right; margin-top:8px; }
+    .check { display:flex; align-items:center; gap:8px; font-size:15px; margin:10px 0; }
+    .check input { width:auto; }
   </style>
 </head>
 <body>
@@ -55,8 +62,7 @@
   <button id="logoutBtn" class="secondary hidden" style="width:auto;margin:0;padding:8px 12px;font-size:14px;">Logout</button>
 </header>
 
-<main>
-  <!-- LOGIN SCREEN -->
+<main id="authMain">
   <section id="authScreen" class="card hidden">
     <h2>Login / Sign up</h2>
     <label>Email</label>
@@ -67,11 +73,11 @@
       <button id="loginBtn">Login</button>
       <button id="signupBtn" class="secondary">Sign up</button>
     </div>
+    <button id="resetBtn" class="secondary">Password bhool gaye? Reset link bhejo</button>
     <div id="authMsg" class="msg"></div>
   </section>
 </main>
 
-<!-- APP SCREEN -->
 <div id="appScreen" class="hidden">
   <nav class="tabs">
     <button class="tab active" data-tab="home">Home</button>
@@ -79,29 +85,59 @@
     <button class="tab" data-tab="bills">Bills</button>
     <button class="tab" data-tab="loans">Loans</button>
     <button class="tab" data-tab="budget">Budget</button>
+    <button class="tab" data-tab="money">Accounts</button>
+    <button class="tab" data-tab="settings">Settings</button>
   </nav>
 
   <main>
-    <div id="globalMsg" class="msg error"></div>
+    <div id="toast" class="toast"></div>
+
+    <div id="monthBar" class="monthbar">
+      <button id="prevMonth" class="secondary">◀</button>
+      <b id="monthLabel"></b>
+      <button id="nextMonth" class="secondary">▶</button>
+    </div>
 
     <!-- HOME -->
     <section id="tab-home" class="tab-section">
       <div class="card">
-        <h2 id="monthTitle">Is mahine ka hisaab</h2>
+        <h2 id="monthTitle">Hisaab</h2>
         <div class="stat"><span>Kamaai (income)</span><b id="totalIncome" class="income">₹0</b></div>
         <div class="stat"><span>Kharcha (expense)</span><b id="totalExpense" class="expense">₹0</b></div>
         <div class="stat"><span>Bacha hua</span><b id="totalLeft">₹0</b></div>
+        <p id="savingsLine" class="muted" style="margin:8px 0 0"></p>
       </div>
+
+      <div id="remCard" class="card hidden">
+        <h2>Dhyan do</h2>
+        <div id="remBox"></div>
+      </div>
+
+      <div id="ruleCard" class="card hidden">
+        <h2>50 / 30 / 20 plan</h2>
+        <div id="ruleBox"></div>
+      </div>
+
       <div class="card">
-        <h2>Recent entries</h2>
-        <div id="entries"><p class="muted">Abhi koi entry nahi hai.</p></div>
+        <div class="row" style="margin-bottom:8px">
+          <h2 style="margin:0">Entries</h2>
+          <button id="exportBtn" class="small secondary" style="width:auto">CSV download</button>
+        </div>
+        <input id="searchBox" placeholder="Search (note, category, account)" />
+        <select id="typeFilter" style="margin-top:8px">
+          <option value="all">Sab</option>
+          <option value="expense">Kharcha</option>
+          <option value="income">Kamaai</option>
+          <option value="transfer">Transfer</option>
+        </select>
+        <div id="entries" style="margin-top:8px"></div>
       </div>
     </section>
 
     <!-- ADD -->
     <section id="tab-add" class="tab-section hidden">
       <div class="card">
-        <h2>Nayi entry</h2>
+        <h2 id="addTitle">Nayi entry</h2>
         <div class="toggle">
           <button id="typeExpense" class="active">Kharcha</button>
           <button id="typeIncome">Kamaai</button>
@@ -133,7 +169,7 @@
         <input id="note" maxlength="280" placeholder="e.g. chai, petrol" />
 
         <button id="saveBtn">Save</button>
-        <div id="saveMsg" class="msg"></div>
+        <button id="cancelEdit" class="secondary hidden">Edit cancel karo</button>
       </div>
     </section>
 
@@ -153,7 +189,6 @@
         <label>Account</label>
         <select id="fxAccount" class="acc-select"></select>
         <button id="fxAdd">Add fixed kharcha</button>
-        <div id="fxMsg" class="msg"></div>
       </div>
 
       <div class="card">
@@ -171,7 +206,6 @@
           <div><label>Account</label><select id="pxAccount" class="acc-select"></select></div>
         </div>
         <button id="pxAdd">Add periodic kharcha</button>
-        <div id="pxMsg" class="msg"></div>
       </div>
     </section>
 
@@ -184,8 +218,7 @@
       </div>
       <div class="card">
         <h2>Khule udhaar</h2>
-        <div id="loanList"><p class="muted">Koi open udhaar nahi.</p></div>
-        <div id="loanMsg" class="msg"></div>
+        <div id="loanList"></div>
       </div>
       <div class="card">
         <h2>Naya udhaar</h2>
@@ -202,18 +235,95 @@
         <label>Wapas kab milega / dena hai (optional)</label>
         <input id="loanExpected" type="date" />
         <button id="loanAdd">Save udhaar</button>
-        <div id="loanAddMsg" class="msg"></div>
       </div>
     </section>
 
     <!-- BUDGET -->
     <section id="tab-budget" class="tab-section hidden">
       <div class="card">
-        <h2 id="budgetTitle">Is mahine ki budget</h2>
-        <p class="muted">Har category ki limit daalo. Kharch ke saath % dikhega.</p>
+        <h2 id="budgetTitle">Budget</h2>
+        <p class="muted">Har category ki limit daalo. Kharch aur % dikhega.</p>
         <div id="budgetList"></div>
         <button id="budgetSave">Budget save karo</button>
-        <div id="budgetMsg" class="msg"></div>
+      </div>
+    </section>
+
+    <!-- ACCOUNTS, CATEGORIES, GOALS -->
+    <section id="tab-money" class="tab-section hidden">
+      <div class="card">
+        <h2>Accounts aur balance</h2>
+        <div id="accList"></div>
+        <h3>Naya account</h3>
+        <label>Naam</label>
+        <input id="accName" maxlength="60" />
+        <div class="row">
+          <div>
+            <label>Type</label>
+            <select id="accType">
+              <option value="cash">Cash</option>
+              <option value="upi">UPI</option>
+              <option value="bank">Bank</option>
+              <option value="card">Card</option>
+            </select>
+          </div>
+          <div><label>Shuruaati balance (₹)</label><input id="accOpen" type="number" step="0.01" value="0" /></div>
+        </div>
+        <button id="accAdd">Account add karo</button>
+      </div>
+
+      <div class="card">
+        <h2>Categories</h2>
+        <div id="catList"></div>
+        <h3>Nayi category</h3>
+        <div class="row">
+          <div><label>Naam</label><input id="catName" maxlength="40" /></div>
+          <div>
+            <label>Group</label>
+            <select id="catGroup">
+              <option value="needs">Needs (50%)</option>
+              <option value="wants">Wants (30%)</option>
+              <option value="savings">Savings (20%)</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+        <button id="catAdd">Category add karo</button>
+      </div>
+
+      <div class="card">
+        <h2>Savings goals</h2>
+        <div id="goalList"></div>
+        <h3>Naya goal</h3>
+        <label>Naam (jaise Bike, Ghar ki dp)</label>
+        <input id="goalName" maxlength="80" />
+        <div class="row">
+          <div><label>Target (₹)</label><input id="goalTarget" type="number" min="0" step="0.01" /></div>
+          <div><label>Target date (optional)</label><input id="goalDate" type="date" /></div>
+        </div>
+        <button id="goalAdd">Goal add karo</button>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="tab-settings" class="tab-section hidden">
+      <div class="card">
+        <h2>Settings</h2>
+        <label>Monthly salary (₹)</label>
+        <input id="setSalary" type="number" min="0" step="0.01" />
+        <label>Salary kis tareekh ko aati hai (1-31)</label>
+        <input id="setSalaryDay" type="number" min="1" max="31" />
+        <label>Savings target (% of salary)</label>
+        <input id="setSavePct" type="number" min="0" max="100" step="0.5" />
+        <label>Planning rule</label>
+        <select id="setRule">
+          <option value="custom">Custom (apni marzi)</option>
+          <option value="50_30_20">50 / 30 / 20</option>
+        </select>
+        <h3>Reminders</h3>
+        <label class="check"><input id="setRemBill" type="checkbox" /> Bills ki due date ka reminder</label>
+        <label class="check"><input id="setRemLoan" type="checkbox" /> Udhaar ki date ka reminder</label>
+        <label class="check"><input id="setRemBudget" type="checkbox" /> Budget 80% par warning</label>
+        <button id="setSave">Settings save karo</button>
       </div>
     </section>
   </main>
@@ -225,79 +335,93 @@
 <script>
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+  // ---------- STATE ----------
   let currentUser = null;
-  let accounts = [];     // [{id, name, account_type}]
-  let categories = [];   // [{id, name}]
+  let allAccounts = [];   // every account, including archived (for names and balances)
+  let accounts = [];      // active accounts only (for dropdowns)
+  let allCategories = []; // every category
+  let categories = [];    // active categories only
+  let settings = {};
   let txType = 'expense';
   let loanDirection = 'lent';
+  let editingId = null;
+  let monthOffset = 0;
+  let activeTab = 'home';
+  let homeRows = [];
+  const txCache = {};
 
+  // ---------- HELPERS ----------
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   const rupees = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  const bar = (pct, over) => `<div class="bar"><div style="width:${Math.min(pct, 100)}%;background:${over ? 'var(--danger)' : 'var(--brand)'}"></div></div>`;
 
-  function showMsg(el, text, isError) {
+  function toast(text, isErr) {
+    const el = $('toast');
     el.textContent = text || '';
-    el.className = 'msg' + (isError ? ' error' : '');
+    el.className = 'toast' + (isErr ? ' error' : '');
   }
 
-  function isoOf(d) {
-    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-  }
-  function todayIso() { return isoOf(new Date()); }
-
-  function monthRange() {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return { start: isoOf(start), end: isoOf(end), label: now.toLocaleString('en-IN', { month: 'long', year: 'numeric' }) };
-  }
-
-  function addMonths(iso, n) {
-    const [y, m, d] = iso.split('-').map(Number);
-    return isoOf(new Date(y, m - 1 + n, d));
-  }
-
-  function accountType(id) {
-    const a = accounts.find((x) => x.id === id);
-    return a ? a.account_type : null;
-  }
-
-  // Wrap any action so errors show on screen instead of silently failing
-  async function run(msgEl, fn) {
+  async function run(fn) {
     try { return await fn(); }
-    catch (e) { showMsg(msgEl, 'Error: ' + (e.message || e), true); return null; }
+    catch (e) { toast('Error: ' + (e.message || e), true); return null; }
   }
+
+  function isoOf(d) { return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+  function todayIso() { return isoOf(new Date()); }
+  function addMonths(iso, n) { const [y, m, d] = iso.split('-').map(Number); return isoOf(new Date(y, m - 1 + n, d)); }
+  function daysBetween(a, b) { return Math.round((new Date(b) - new Date(a)) / 86400000); }
+
+  function curMonth() {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+    const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
+    return { start: isoOf(first), end: isoOf(last), label: first.toLocaleString('en-IN', { month: 'long', year: 'numeric' }), offset: monthOffset };
+  }
+
+  const accName = (id) => ((allAccounts.find((a) => a.id === id)) || {}).name || '-';
+  const accType = (id) => ((allAccounts.find((a) => a.id === id)) || {}).account_type || null;
+  const catName = (id) => ((allCategories.find((c) => c.id === id)) || {}).name || '-';
+  const catGroup = (id) => ((allCategories.find((c) => c.id === id)) || {}).group_name || 'other';
 
   // ---------- AUTH ----------
   async function signUp() {
     const email = $('email').value.trim();
     const password = $('password').value;
-    showMsg($('authMsg'), 'Account ban raha hai...');
     const { error } = await sb.auth.signUp({ email, password });
-    if (error) return showMsg($('authMsg'), error.message, true);
-    showMsg($('authMsg'), 'Account ban gaya. Ab Login karo.');
+    $('authMsg').textContent = error ? error.message : 'Account ban gaya. Ab Login karo.';
+    $('authMsg').className = 'msg' + (error ? ' error' : '');
   }
 
   async function logIn() {
     const email = $('email').value.trim();
     const password = $('password').value;
-    showMsg($('authMsg'), 'Login ho raha hai...');
     const { error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) return showMsg($('authMsg'), error.message, true);
+    if (error) { $('authMsg').textContent = error.message; $('authMsg').className = 'msg error'; }
+  }
+
+  async function resetPassword() {
+    const email = $('email').value.trim();
+    if (!email) { $('authMsg').textContent = 'Pehle email daalo.'; $('authMsg').className = 'msg error'; return; }
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.href.split('?')[0] });
+    $('authMsg').textContent = error ? error.message : 'Reset link email par bhej diya. Mail check karo.';
+    $('authMsg').className = 'msg' + (error ? ' error' : '');
   }
 
   async function logOut() { await sb.auth.signOut(); }
 
-  // ---------- LOOKUPS ----------
+  // ---------- LOOKUPS & SETTINGS ----------
   async function loadLookups() {
     const [acc, cat] = await Promise.all([
-      sb.from('accounts').select('id,name,account_type').eq('is_archived', false).order('name'),
-      sb.from('categories').select('id,name').eq('is_archived', false).order('name')
+      sb.from('accounts').select('id,name,account_type,opening_balance,is_archived').order('name'),
+      sb.from('categories').select('id,name,group_name,is_archived').order('name')
     ]);
     if (acc.error) throw acc.error;
     if (cat.error) throw cat.error;
-    accounts = acc.data;
-    categories = cat.data;
+    allAccounts = acc.data;
+    allCategories = cat.data;
+    accounts = acc.data.filter((a) => !a.is_archived);
+    categories = cat.data.filter((c) => !c.is_archived);
 
     const accOpts = accounts.map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
     document.querySelectorAll('.acc-select').forEach((el) => { el.innerHTML = accOpts; });
@@ -305,50 +429,197 @@
       el.innerHTML = '<option value="">-- None --</option>' +
         categories.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
     });
-    $('toAccountSelect').selectedIndex = accounts.length > 1 ? 1 : 0;
+    if (accounts.length > 1) $('toAccountSelect').selectedIndex = 1;
+  }
+
+  async function loadSettings() {
+    const { data, error } = await sb.from('settings').select('*').eq('user_id', currentUser.id).maybeSingle();
+    if (error) throw error;
+    settings = data || {
+      monthly_salary: 0, salary_day: null, savings_target_percent: 20, planning_rule: 'custom',
+      reminder_budget_80: true, reminder_bill_due: true, reminder_loan_due: true
+    };
+  }
+
+  async function computeBalances() {
+    const { data, error } = await sb.from('transactions').select('amount,transaction_type,account_id,destination_account_id');
+    if (error) throw error;
+    const bal = {};
+    allAccounts.forEach((a) => { bal[a.id] = Number(a.opening_balance) || 0; });
+    data.forEach((t) => {
+      const amt = Number(t.amount);
+      if (t.transaction_type === 'income') bal[t.account_id] = (bal[t.account_id] || 0) + amt;
+      else if (t.transaction_type === 'expense') bal[t.account_id] = (bal[t.account_id] || 0) - amt;
+      else {
+        bal[t.account_id] = (bal[t.account_id] || 0) - amt;
+        bal[t.destination_account_id] = (bal[t.destination_account_id] || 0) + amt;
+      }
+    });
+    return bal;
   }
 
   // ---------- HOME ----------
-  async function loadMonthSummary() {
-    const m = monthRange();
-    $('monthTitle').textContent = `${m.label} ka hisaab`;
-    const { data, error } = await sb.from('transactions')
-      .select('amount,transaction_type')
-      .gte('transaction_date', m.start)
-      .lte('transaction_date', m.end)
-      .neq('transaction_type', 'transfer');
+  async function loadHome() {
+    const m = curMonth();
+    $('monthTitle').textContent = m.label + ' ka hisaab';
+    const { data, error } = await sb.from('transactions').select('*')
+      .gte('transaction_date', m.start).lte('transaction_date', m.end)
+      .order('transaction_date', { ascending: false }).order('created_at', { ascending: false });
     if (error) throw error;
 
+    homeRows = data;
+    data.forEach((t) => { txCache[t.id] = t; });
+
     let income = 0, expense = 0;
-    data.forEach((t) => t.transaction_type === 'income' ? income += Number(t.amount) : expense += Number(t.amount));
+    const spentByCat = {};
+    data.forEach((t) => {
+      const a = Number(t.amount);
+      if (t.transaction_type === 'income') income += a;
+      else if (t.transaction_type === 'expense') {
+        expense += a;
+        if (t.category_id) spentByCat[t.category_id] = (spentByCat[t.category_id] || 0) + a;
+      }
+    });
     $('totalIncome').textContent = rupees(income);
     $('totalExpense').textContent = rupees(expense);
     $('totalLeft').textContent = rupees(income - expense);
     $('totalLeft').className = (income - expense) >= 0 ? 'income' : 'expense';
+
+    const salary = Number(settings.monthly_salary) || 0;
+    $('savingsLine').textContent = salary > 0
+      ? `Savings target: ${rupees(salary * (settings.savings_target_percent || 0) / 100)} (salary ka ${settings.savings_target_percent}%)`
+      : 'Settings mein salary daalo to savings target dikhega.';
+
+    renderRule(salary, spentByCat);
+    renderList();
+    await renderReminders(m);
   }
 
-  async function loadRecent() {
-    const { data, error } = await sb.from('transactions')
-      .select('id,amount,transaction_type,transaction_date,note,categories(name)')
-      .order('transaction_date', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(15);
-    if (error) throw error;
-
-    const box = $('entries');
-    if (!data.length) { box.innerHTML = '<p class="muted">Abhi koi entry nahi hai.</p>'; return; }
-    box.innerHTML = data.map((t) => {
-      const label = t.transaction_type === 'transfer' ? 'Transfer'
-        : (t.categories && t.categories.name) || (t.transaction_type === 'income' ? 'Kamaai' : 'Kharcha');
-      const sub = [t.transaction_date, t.note].filter(Boolean).join(' • ');
-      const sign = t.transaction_type === 'income' ? '+' : (t.transaction_type === 'transfer' ? '' : '-');
-      const cls = t.transaction_type === 'income' ? 'income' : (t.transaction_type === 'transfer' ? '' : 'expense');
-      return `<div class="entry"><div><div>${esc(label)}</div><small>${esc(sub)}</small></div>
-              <b class="${cls}">${sign}${rupees(t.amount)}</b></div>`;
+  function renderRule(salary, spentByCat) {
+    if (settings.planning_rule !== '50_30_20' || !(salary > 0)) { $('ruleCard').classList.add('hidden'); return; }
+    $('ruleCard').classList.remove('hidden');
+    const groups = { needs: 0, wants: 0, savings: 0 };
+    Object.entries(spentByCat).forEach(([id, v]) => { const g = catGroup(id); if (g in groups) groups[g] += v; });
+    const lines = [['needs', 'Needs', 0.5], ['wants', 'Wants', 0.3], ['savings', 'Savings', 0.2]];
+    $('ruleBox').innerHTML = lines.map(([k, label, share]) => {
+      const limit = salary * share;
+      const used = groups[k];
+      const over = used > limit;
+      return `<div style="margin-bottom:10px"><div class="row" style="justify-content:space-between">
+        <span>${label} (${share * 100}%)</span><span class="${over ? 'expense' : ''}">${rupees(used)} / ${rupees(limit)}</span></div>
+        ${bar(limit ? (used / limit) * 100 : 0, over)}</div>`;
     }).join('');
   }
 
-  // ---------- ADD ENTRY ----------
+  function renderList() {
+    const q = $('searchBox').value.trim().toLowerCase();
+    const type = $('typeFilter').value;
+    const rows = homeRows.filter((t) => {
+      if (type !== 'all' && t.transaction_type !== type) return false;
+      if (!q) return true;
+      const hay = [t.note, catName(t.category_id), accName(t.account_id)].join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+    if (!rows.length) { $('entries').innerHTML = '<p class="muted">Is mahine koi entry nahi.</p>'; return; }
+    $('entries').innerHTML = rows.map((t) => {
+      const isT = t.transaction_type === 'transfer';
+      const label = isT ? `Transfer: ${accName(t.account_id)} → ${accName(t.destination_account_id)}`
+        : (t.category_id ? catName(t.category_id) : (t.transaction_type === 'income' ? 'Kamaai' : 'Kharcha'));
+      const sub = [t.transaction_date, isT ? '' : accName(t.account_id), t.note].filter(Boolean).join(' • ');
+      const sign = t.transaction_type === 'income' ? '+' : (isT ? '' : '-');
+      const cls = t.transaction_type === 'income' ? 'income' : (isT ? '' : 'expense');
+      return `<div class="entry">
+        <div style="flex:1"><div>${esc(label)}</div><small>${esc(sub)}</small></div>
+        <div style="text-align:right"><b class="${cls}">${sign}${rupees(t.amount)}</b><br>
+          <button class="small secondary" data-act="editTx" data-id="${t.id}">Edit</button>
+          <button class="small secondary" data-act="delTx" data-id="${t.id}">Hatao</button></div>
+      </div>`;
+    }).join('');
+  }
+
+  async function renderReminders(m) {
+    const items = [];
+    const today = todayIso();
+
+    if (settings.reminder_bill_due) {
+      const { data: px } = await sb.from('periodic_expenses').select('name,amount,next_due_date,reminder_days_before').eq('is_active', true);
+      (px || []).forEach((p) => {
+        const d = daysBetween(today, p.next_due_date);
+        if (d <= p.reminder_days_before) {
+          const when = d < 0 ? `${Math.abs(d)} din pehle due thi` : d === 0 ? 'aaj due hai' : `${d} din mein due hai`;
+          items.push(`Recharge/periodic: ${esc(p.name)} ${when} • ${rupees(p.amount)}`);
+        }
+      });
+
+      if (m.offset === 0) {
+        const [fx, pay] = await Promise.all([
+          sb.from('fixed_expenses').select('id,name,amount,due_day').eq('is_active', true),
+          sb.from('fixed_payments').select('fixed_expense_id').eq('month_start', m.start)
+        ]);
+        const paidIds = new Set((pay.data || []).map((p) => p.fixed_expense_id));
+        const dayNow = new Date().getDate();
+        (fx.data || []).forEach((f) => {
+          const diff = f.due_day - dayNow;
+          if (!paidIds.has(f.id) && diff <= 3) {
+            const when = diff < 0 ? 'due date nikal gayi' : diff === 0 ? 'aaj due hai' : `${diff} din mein due hai`;
+            items.push(`Fixed: ${esc(f.name)} abhi unpaid hai, ${when} • ${rupees(f.amount)}`);
+          }
+        });
+      }
+    }
+
+    if (settings.reminder_loan_due) {
+      const { data: loans } = await sb.from('loans')
+        .select('person_name,direction,balance_amount,expected_date').eq('is_closed', false).not('expected_date', 'is', null);
+      (loans || []).forEach((l) => {
+        const d = daysBetween(today, l.expected_date);
+        if (d <= 7) {
+          const who = l.direction === 'lent' ? 'wapas aana hai' : 'dena hai';
+          items.push(`Udhaar: ${esc(l.person_name)} ${who} ${rupees(l.balance_amount)} (${d < 0 ? 'date nikal gayi' : d === 0 ? 'aaj' : d + ' din mein'})`);
+        }
+      });
+    }
+
+    if (settings.reminder_budget_80) {
+      const [bud, tx] = await Promise.all([
+        sb.from('budgets').select('category_id,amount').eq('month_start', m.start),
+        sb.from('transactions').select('amount,category_id').eq('transaction_type', 'expense')
+          .gte('transaction_date', m.start).lte('transaction_date', m.end)
+      ]);
+      const spent = {};
+      (tx.data || []).forEach((t) => { if (t.category_id) spent[t.category_id] = (spent[t.category_id] || 0) + Number(t.amount); });
+      (bud.data || []).forEach((b) => {
+        const used = spent[b.category_id] || 0;
+        const limit = Number(b.amount);
+        if (limit > 0 && used >= limit * 0.8) {
+          items.push(`Budget: ${esc(catName(b.category_id))} ${Math.round(used / limit * 100)}% use ho gaya`);
+        }
+      });
+    }
+
+    $('remCard').classList.toggle('hidden', items.length === 0);
+    $('remBox').innerHTML = items.map((t) => `<div class="reminder">${t}</div>`).join('');
+  }
+
+  function exportCsv() {
+    const m = curMonth();
+    const head = ['Date', 'Type', 'Category', 'Account', 'To Account', 'Amount', 'Note'];
+    const lines = [head.join(',')].concat(homeRows.map((t) => [
+      t.transaction_date, t.transaction_type, catName(t.category_id), accName(t.account_id),
+      t.destination_account_id ? accName(t.destination_account_id) : '', t.amount, t.note || ''
+    ].map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')));
+    const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `moneyhold-${m.start}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // ---------- ADD / EDIT ENTRY ----------
   function setType(t) {
     txType = t;
     $('typeExpense').classList.toggle('active', t === 'expense');
@@ -359,67 +630,114 @@
     $('fromLabel').textContent = t === 'transfer' ? 'Kis account se' : 'Account';
   }
 
+  function resetAddForm() {
+    editingId = null;
+    $('amount').value = '';
+    $('note').value = '';
+    $('date').value = todayIso();
+    $('addTitle').textContent = 'Nayi entry';
+    $('saveBtn').textContent = 'Save';
+    $('cancelEdit').classList.add('hidden');
+    setType('expense');
+  }
+
   async function saveEntry() {
     const amount = parseFloat($('amount').value);
-    if (!amount || amount <= 0) return showMsg($('saveMsg'), 'Amount sahi daalo (0 se zyada).', true);
-
+    if (!amount || amount <= 0) return toast('Amount sahi daalo (0 se zyada).', true);
     const accountId = $('accountSelect').value;
-    if (!accountId) return showMsg($('saveMsg'), 'Account chuno.', true);
+    if (!accountId) return toast('Account chuno.', true);
 
-    const payload = {
-      user_id: currentUser.id,
-      client_id: crypto.randomUUID(),
+    const row = {
       transaction_type: txType,
-      amount: amount,
+      amount,
       transaction_date: $('date').value || todayIso(),
       account_id: accountId,
-      payment_mode: accountType(accountId),
+      payment_mode: accType(accountId) || 'cash',
       category_id: null,
+      destination_account_id: null,
       note: $('note').value.trim() || null
     };
-
     if (txType === 'transfer') {
       const dest = $('toAccountSelect').value;
-      if (!dest || dest === accountId) return showMsg($('saveMsg'), 'Transfer ke liye do alag accounts chuno.', true);
-      payload.destination_account_id = dest;
+      if (!dest || dest === accountId) return toast('Transfer ke liye do alag accounts chuno.', true);
+      row.destination_account_id = dest;
     } else {
-      payload.category_id = $('categorySelect').value || null;
+      row.category_id = $('categorySelect').value || null;
     }
 
     $('saveBtn').disabled = true;
-    const { error } = await sb.from('transactions').insert(payload);
+    let error;
+    if (editingId) {
+      ({ error } = await sb.from('transactions').update(row).eq('id', editingId));
+    } else {
+      ({ error } = await sb.from('transactions').insert({ ...row, user_id: currentUser.id, client_id: crypto.randomUUID() }));
+    }
     $('saveBtn').disabled = false;
+    if (error) return toast('Save nahi hua: ' + error.message, true);
 
-    if (error) return showMsg($('saveMsg'), 'Save nahi hua: ' + error.message, true);
+    toast(editingId ? 'Update ho gaya ✔' : 'Save ho gaya ✔');
+    resetAddForm();
+    await showTab('home');
+  }
 
-    showMsg($('saveMsg'), 'Save ho gaya ✔');
-    $('amount').value = '';
-    $('note').value = '';
-    await loadMonthSummary();
+  function editTx(id) {
+    const t = txCache[id];
+    if (!t) return toast('Entry nahi mili, page refresh karo.', true);
+    editingId = id;
+    setType(t.transaction_type);
+    $('amount').value = t.amount;
+    $('date').value = t.transaction_date;
+    $('accountSelect').value = t.account_id;
+    if (t.transaction_type === 'transfer') $('toAccountSelect').value = t.destination_account_id;
+    else $('categorySelect').value = t.category_id || '';
+    $('note').value = t.note || '';
+    $('addTitle').textContent = 'Entry edit karo';
+    $('saveBtn').textContent = 'Update karo';
+    $('cancelEdit').classList.remove('hidden');
+    showTab('add');
+  }
+
+  async function deleteTx(id) {
+    if (!confirm('Ye entry hatana hai?')) return;
+    await sb.from('fixed_payments').delete().eq('transaction_id', id);
+    const { error } = await sb.from('transactions').delete().eq('id', id);
+    if (error) throw error;
+    toast('Entry hata di ✔');
+    await showTab(activeTab);
   }
 
   // ---------- BILLS ----------
   async function loadBills() {
-    const [fx, px] = await Promise.all([
+    const m = curMonth();
+    const [fx, px, pay] = await Promise.all([
       sb.from('fixed_expenses').select('id,name,amount,due_day').eq('is_active', true).order('due_day'),
-      sb.from('periodic_expenses').select('id,name,amount,every_n_months,next_due_date').eq('is_active', true).order('next_due_date')
+      sb.from('periodic_expenses').select('id,name,amount,every_n_months,next_due_date').eq('is_active', true).order('next_due_date'),
+      sb.from('fixed_payments').select('id,fixed_expense_id,transaction_id').eq('month_start', m.start)
     ]);
     if (fx.error) throw fx.error;
     if (px.error) throw px.error;
+    if (pay.error) throw pay.error;
+    const payMap = {};
+    pay.data.forEach((p) => { payMap[p.fixed_expense_id] = p; });
 
-    $('fxList').innerHTML = fx.data.length ? fx.data.map((f) => `
-      <div class="entry">
-        <div><div>${esc(f.name)}</div><small>Har mahine ${f.due_day} tareekh</small></div>
-        <div style="text-align:right"><b class="expense">${rupees(f.amount)}</b><br>
-          <button class="small secondary" data-del-fx="${f.id}">Hatao</button></div>
-      </div>`).join('') : '<p class="muted">Koi fixed kharcha nahi.</p>';
+    $('fxList').innerHTML = fx.data.length ? fx.data.map((f) => {
+      const p = payMap[f.id];
+      const btn = p
+        ? `<button class="small" data-act="unpaidFixed" data-id="${p.id}" data-tx="${p.transaction_id || ''}">Paid ✔ (undo)</button>`
+        : `<button class="small secondary" data-act="paidFixed" data-id="${f.id}">Paid karo</button>`;
+      return `<div class="entry">
+        <div><div>${esc(f.name)}</div><small>Har mahine ${f.due_day} tareekh • ${m.label}</small></div>
+        <div style="text-align:right"><b class="expense">${rupees(f.amount)}</b><br>${btn}
+          <button class="small secondary" data-act="delFixed" data-id="${f.id}">Hatao</button></div>
+      </div>`;
+    }).join('') : '<p class="muted">Koi fixed kharcha nahi.</p>';
     $('fxTotal').textContent = rupees(fx.data.reduce((s, f) => s + Number(f.amount), 0));
 
     $('pxList').innerHTML = px.data.length ? px.data.map((p) => `
       <div class="entry">
         <div><div>${esc(p.name)}</div><small>Agli due: ${esc(p.next_due_date)} • har ${p.every_n_months} mahine</small></div>
         <div style="text-align:right"><b class="expense">${rupees(p.amount)}</b><br>
-          <button class="small" data-pay-px="${p.id}">Paid</button></div>
+          <button class="small" data-act="paidPx" data-id="${p.id}">Paid</button></div>
       </div>`).join('') : '<p class="muted">Koi periodic kharcha nahi.</p>';
   }
 
@@ -428,21 +746,61 @@
     const amount = parseFloat($('fxAmount').value);
     const day = parseInt($('fxDay').value, 10);
     const accountId = $('fxAccount').value;
-    if (!name || !amount || amount <= 0) return showMsg($('fxMsg'), 'Naam aur amount daalo.', true);
-    if (!(day >= 1 && day <= 31)) return showMsg($('fxMsg'), 'Due day 1 se 31 ke beech honi chahiye.', true);
+    if (!name || !amount || amount <= 0) return toast('Naam aur amount daalo.', true);
+    if (!(day >= 1 && day <= 31)) return toast('Due day 1 se 31 ke beech honi chahiye.', true);
     const { error } = await sb.from('fixed_expenses').insert({
       user_id: currentUser.id, name, amount, due_day: day,
-      account_id: accountId || null, payment_mode: accountType(accountId) || 'bank'
+      account_id: accountId || null, payment_mode: accType(accountId) || 'bank'
     });
-    if (error) return showMsg($('fxMsg'), error.message, true);
-    ['fxName', 'fxAmount', 'fxDay'].forEach((id) => $(id).value = '');
-    showMsg($('fxMsg'), 'Add ho gaya ✔');
+    if (error) throw error;
+    ['fxName', 'fxAmount', 'fxDay'].forEach((id) => { $(id).value = ''; });
+    toast('Fixed kharcha add ho gaya ✔');
     await loadBills();
   }
 
   async function deleteFixed(id) {
+    if (!confirm('Ye fixed kharcha hatana hai?')) return;
     const { error } = await sb.from('fixed_expenses').update({ is_active: false }).eq('id', id);
-    if (error) return showMsg($('fxMsg'), error.message, true);
+    if (error) throw error;
+    await loadBills();
+  }
+
+  // Marks a fixed bill paid for the selected month and records an expense
+  async function paidFixed(id) {
+    const m = curMonth();
+    const { data: f, error } = await sb.from('fixed_expenses').select('*').eq('id', id).single();
+    if (error) throw error;
+    if (!f.account_id) return toast('Is kharche ka account set nahi hai. Edit karke account daalo.', true);
+
+    const { data: tx, error: txErr } = await sb.from('transactions').insert({
+      user_id: currentUser.id,
+      client_id: crypto.randomUUID(),
+      transaction_type: 'expense',
+      amount: f.amount,
+      transaction_date: m.offset === 0 ? todayIso() : m.start,
+      account_id: f.account_id,
+      payment_mode: accType(f.account_id) || f.payment_mode,
+      category_id: f.category_id,
+      note: f.name
+    }).select('id').single();
+    if (txErr) throw txErr;
+
+    const { error: payErr } = await sb.from('fixed_payments').insert({
+      user_id: currentUser.id, fixed_expense_id: id, month_start: m.start, transaction_id: tx.id
+    });
+    if (payErr) throw payErr;
+    toast('Paid ✔');
+    await loadBills();
+  }
+
+  async function unpaidFixed(paymentId, txId) {
+    const { error } = await sb.from('fixed_payments').delete().eq('id', paymentId);
+    if (error) throw error;
+    if (txId) {
+      const { error: txErr } = await sb.from('transactions').delete().eq('id', txId);
+      if (txErr) throw txErr;
+    }
+    toast('Paid status hata diya ✔');
     await loadBills();
   }
 
@@ -452,24 +810,23 @@
     const every = parseInt($('pxEvery').value, 10);
     const next = $('pxNext').value;
     const accountId = $('pxAccount').value;
-    if (!name || !amount || amount <= 0) return showMsg($('pxMsg'), 'Naam aur amount daalo.', true);
-    if (!(every >= 1 && every <= 60)) return showMsg($('pxMsg'), 'Har kitne mahine (1-60) daalo.', true);
-    if (!next) return showMsg($('pxMsg'), 'Agli due date chuno.', true);
+    if (!name || !amount || amount <= 0) return toast('Naam aur amount daalo.', true);
+    if (!(every >= 1 && every <= 60)) return toast('Har kitne mahine (1-60) daalo.', true);
+    if (!next) return toast('Agli due date chuno.', true);
     const { error } = await sb.from('periodic_expenses').insert({
       user_id: currentUser.id, name, amount, every_n_months: every, next_due_date: next,
-      account_id: accountId || null, payment_mode: accountType(accountId) || 'upi'
+      account_id: accountId || null, payment_mode: accType(accountId) || 'upi'
     });
-    if (error) return showMsg($('pxMsg'), error.message, true);
-    ['pxName', 'pxAmount', 'pxEvery', 'pxNext'].forEach((id) => $(id).value = '');
-    showMsg($('pxMsg'), 'Add ho gaya ✔');
+    if (error) throw error;
+    ['pxName', 'pxAmount', 'pxEvery', 'pxNext'].forEach((id) => { $(id).value = ''; });
+    toast('Periodic kharcha add ho gaya ✔');
     await loadBills();
   }
 
-  // Marks a periodic bill as paid: records an expense and moves the due date forward
   async function payPeriodic(id) {
     const { data: p, error } = await sb.from('periodic_expenses').select('*').eq('id', id).single();
     if (error) throw error;
-    if (!p.account_id) return showMsg($('pxMsg'), 'Is kharche ka account set nahi hai.', true);
+    if (!p.account_id) return toast('Is kharche ka account set nahi hai.', true);
 
     const { error: txErr } = await sb.from('transactions').insert({
       user_id: currentUser.id,
@@ -478,42 +835,41 @@
       amount: p.amount,
       transaction_date: todayIso(),
       account_id: p.account_id,
-      payment_mode: accountType(p.account_id) || p.payment_mode,
+      payment_mode: accType(p.account_id) || p.payment_mode,
       category_id: p.category_id,
       note: p.name
     });
-    if (txErr) return showMsg($('pxMsg'), txErr.message, true);
+    if (txErr) throw txErr;
 
     const { error: upErr } = await sb.from('periodic_expenses')
       .update({ next_due_date: addMonths(p.next_due_date, p.every_n_months) }).eq('id', id);
-    if (upErr) return showMsg($('pxMsg'), upErr.message, true);
-
-    showMsg($('pxMsg'), 'Paid ✔ Agli due date aage badh gayi.');
-    await Promise.all([loadBills(), loadMonthSummary()]);
+    if (upErr) throw upErr;
+    toast('Paid ✔ Agli due date aage badh gayi.');
+    await loadBills();
   }
 
   // ---------- LOANS ----------
   async function loadLoans() {
     const { data, error } = await sb.from('loans')
       .select('id,person_name,direction,amount,settled_amount,balance_amount,expected_date')
-      .eq('is_closed', false)
-      .order('created_at', { ascending: false });
+      .eq('is_closed', false).order('created_at', { ascending: false });
     if (error) throw error;
 
     let lent = 0, borrowed = 0;
-    data.forEach((l) => l.direction === 'lent' ? lent += Number(l.balance_amount) : borrowed += Number(l.balance_amount));
+    data.forEach((l) => { if (l.direction === 'lent') lent += Number(l.balance_amount); else borrowed += Number(l.balance_amount); });
     $('loanLent').textContent = rupees(lent);
     $('loanBorrowed').textContent = rupees(borrowed);
 
     $('loanList').innerHTML = data.length ? data.map((l) => `
-      <div class="entry">
-        <div style="flex:1">
+      <div class="entry" style="display:block">
+        <div class="row" style="justify-content:space-between">
           <div>${esc(l.person_name)} <small>(${l.direction === 'lent' ? 'Maine diya' : 'Maine liya'})</small></div>
-          <small>Baaki: ${rupees(l.balance_amount)} of ${rupees(l.amount)}${l.expected_date ? ' • date: ' + esc(l.expected_date) : ''}</small>
-          <div class="row" style="margin-top:6px">
-            <input type="number" min="0" step="0.01" placeholder="Kitna aaya/diya" id="pay-${l.id}" style="padding:8px" />
-            <button class="small" style="margin:0;width:auto" data-pay-loan="${l.id}">Jama</button>
-          </div>
+          <button class="small secondary" style="width:auto" data-act="delLoan" data-id="${l.id}">Hatao</button>
+        </div>
+        <small>Baaki: ${rupees(l.balance_amount)} of ${rupees(l.amount)}${l.expected_date ? ' • date: ' + esc(l.expected_date) : ''}</small>
+        <div class="row" style="margin-top:6px">
+          <input type="number" min="0" step="0.01" placeholder="Kitna aaya/diya" id="pay-${l.id}" style="padding:8px" />
+          <button class="small" style="margin:0;width:auto" data-act="payLoan" data-id="${l.id}">Jama</button>
         </div>
       </div>`).join('') : '<p class="muted">Koi open udhaar nahi.</p>';
   }
@@ -523,29 +879,35 @@
     const amount = parseFloat($('loanAmount').value);
     const date = $('loanDate').value || todayIso();
     const expected = $('loanExpected').value || null;
-    if (!person || !amount || amount <= 0) return showMsg($('loanAddMsg'), 'Naam aur amount daalo.', true);
+    if (!person || !amount || amount <= 0) return toast('Naam aur amount daalo.', true);
     const { error } = await sb.from('loans').insert({
       user_id: currentUser.id, person_name: person, direction: loanDirection,
       amount, loan_date: date, expected_date: expected
     });
-    if (error) return showMsg($('loanAddMsg'), error.message, true);
-    ['loanPerson', 'loanAmount', 'loanExpected'].forEach((id) => $(id).value = '');
-    showMsg($('loanAddMsg'), 'Save ho gaya ✔');
+    if (error) throw error;
+    ['loanPerson', 'loanAmount', 'loanExpected'].forEach((id) => { $(id).value = ''; });
+    toast('Udhaar save ho gaya ✔');
     await loadLoans();
   }
 
   async function payLoan(id) {
     const amt = parseFloat($('pay-' + id).value);
-    if (!amt || amt <= 0) return showMsg($('loanMsg'), 'Jama amount daalo.', true);
+    if (!amt || amt <= 0) return toast('Jama amount daalo.', true);
     const { data: l, error } = await sb.from('loans').select('amount,settled_amount').eq('id', id).single();
     if (error) throw error;
     const newSettled = Number(l.settled_amount) + amt;
-    if (newSettled > Number(l.amount)) return showMsg($('loanMsg'), 'Itna amount baaki nahi hai.', true);
+    if (newSettled > Number(l.amount)) return toast('Itna amount baaki nahi hai.', true);
     const { error: upErr } = await sb.from('loans')
-      .update({ settled_amount: newSettled, is_closed: newSettled >= Number(l.amount) })
-      .eq('id', id);
-    if (upErr) return showMsg($('loanMsg'), upErr.message, true);
-    showMsg($('loanMsg'), 'Jama ho gaya ✔');
+      .update({ settled_amount: newSettled, is_closed: newSettled >= Number(l.amount) }).eq('id', id);
+    if (upErr) throw upErr;
+    toast('Jama ho gaya ✔');
+    await loadLoans();
+  }
+
+  async function deleteLoan(id) {
+    if (!confirm('Ye udhaar hatana hai?')) return;
+    const { error } = await sb.from('loans').delete().eq('id', id);
+    if (error) throw error;
     await loadLoans();
   }
 
@@ -557,14 +919,12 @@
 
   // ---------- BUDGET ----------
   async function loadBudget() {
-    const m = monthRange();
-    $('budgetTitle').textContent = `${m.label} ki budget`;
+    const m = curMonth();
+    $('budgetTitle').textContent = m.label + ' ki budget';
     const [bud, tx] = await Promise.all([
       sb.from('budgets').select('category_id,amount').eq('month_start', m.start),
-      sb.from('transactions').select('amount,category_id')
-        .eq('transaction_type', 'expense')
-        .gte('transaction_date', m.start)
-        .lte('transaction_date', m.end)
+      sb.from('transactions').select('amount,category_id').eq('transaction_type', 'expense')
+        .gte('transaction_date', m.start).lte('transaction_date', m.end)
     ]);
     if (bud.error) throw bud.error;
     if (tx.error) throw tx.error;
@@ -577,78 +937,267 @@
     $('budgetList').innerHTML = categories.map((c) => {
       const limit = budMap[c.id] || 0;
       const used = spent[c.id] || 0;
-      const pct = limit > 0 ? Math.round((used / limit) * 100) + '%' : '-';
-      const warn = limit > 0 && used > limit ? ' expense' : '';
-      return `<div class="budget-row">
-        <div><div>${esc(c.name)}</div><small class="${warn}">Kharch: ${rupees(used)} • ${pct}</small></div>
-        <input type="number" min="0" step="1" data-bud="${c.id}" data-old="${limit || ''}" value="${limit || ''}" placeholder="Budget ₹" />
+      const pct = limit > 0 ? Math.round((used / limit) * 100) : 0;
+      return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <div class="row" style="justify-content:space-between">
+          <div>${esc(c.name)}<small class="${limit > 0 && used > limit ? 'expense' : 'muted'}" style="display:block">Kharch: ${rupees(used)}${limit ? ' • ' + pct + '%' : ''}</small></div>
+          <input type="number" min="0" step="1" data-bud="${c.id}" data-old="${limit || ''}" value="${limit || ''}" placeholder="Budget ₹" style="width:130px" />
+        </div>
+        ${limit > 0 ? bar(pct, used > limit) : ''}
       </div>`;
     }).join('') || '<p class="muted">Pehle Categories add karo.</p>';
   }
 
   async function saveBudget() {
-    const m = monthRange();
-    const inputs = document.querySelectorAll('[data-bud]');
+    const m = curMonth();
     const upserts = [];
     const deletes = [];
-    inputs.forEach((inp) => {
+    document.querySelectorAll('[data-bud]').forEach((inp) => {
       const val = parseFloat(inp.value);
-      const hadOld = inp.dataset.old !== '';
-      if (val > 0) {
-        upserts.push({ user_id: currentUser.id, category_id: inp.dataset.bud, month_start: m.start, amount: val });
-      } else if (hadOld) {
-        deletes.push(inp.dataset.bud);
-      }
+      if (val > 0) upserts.push({ user_id: currentUser.id, category_id: inp.dataset.bud, month_start: m.start, amount: val });
+      else if (inp.dataset.old !== '') deletes.push(inp.dataset.bud);
     });
-
     if (upserts.length) {
       const { error } = await sb.from('budgets').upsert(upserts, { onConflict: 'user_id,category_id,month_start' });
-      if (error) return showMsg($('budgetMsg'), error.message, true);
+      if (error) throw error;
     }
     for (const catId of deletes) {
-      const { error } = await sb.from('budgets').delete()
-        .eq('category_id', catId).eq('month_start', m.start);
-      if (error) return showMsg($('budgetMsg'), error.message, true);
+      const { error } = await sb.from('budgets').delete().eq('category_id', catId).eq('month_start', m.start);
+      if (error) throw error;
     }
-    showMsg($('budgetMsg'), 'Budget save ho gaya ✔');
+    toast('Budget save ho gaya ✔');
     await loadBudget();
   }
 
-  // ---------- TABS ----------
+  // ---------- ACCOUNTS, CATEGORIES, GOALS ----------
+  async function loadMoney() {
+    const bal = await computeBalances();
+    $('accList').innerHTML = accounts.length ? accounts.map((a) => `
+      <div class="entry">
+        <div><div>${esc(a.name)}</div><small>${esc(a.account_type)}</small></div>
+        <div style="text-align:right"><b class="${bal[a.id] < 0 ? 'expense' : ''}">${rupees(bal[a.id])}</b><br>
+          <button class="small secondary" data-act="archAcc" data-id="${a.id}">Archive</button></div>
+      </div>`).join('') : '<p class="muted">Koi account nahi.</p>';
+
+    $('catList').innerHTML = categories.map((c) => `
+      <div class="entry">
+        <div><div>${esc(c.name)}</div><small>${esc(c.group_name)}</small></div>
+        <div><button class="small secondary" data-act="renameCat" data-id="${c.id}">Naam badlo</button>
+          <button class="small secondary" data-act="archCat" data-id="${c.id}">Archive</button></div>
+      </div>`).join('') || '<p class="muted">Koi category nahi.</p>';
+
+    const { data: goals, error } = await sb.from('savings_goals').select('*').eq('is_archived', false).order('created_at');
+    if (error) throw error;
+    $('goalList').innerHTML = goals.length ? goals.map((g) => {
+      const pct = Math.min(100, Math.round(Number(g.saved_amount) / Number(g.target_amount) * 100));
+      return `<div class="entry" style="display:block">
+        <div class="row" style="justify-content:space-between"><div>${esc(g.name)}</div>
+          <b>${rupees(g.saved_amount)} / ${rupees(g.target_amount)}</b></div>
+        ${bar(pct, false)}
+        <div class="row" style="margin-top:8px">
+          <input type="number" min="0" step="0.01" id="goal-${g.id}" placeholder="Kitna jama" style="padding:8px" />
+          <button class="small" style="margin:0;width:auto" data-act="addGoal" data-id="${g.id}">Jama</button>
+          <button class="small secondary" style="margin:0;width:auto" data-act="delGoal" data-id="${g.id}">Hatao</button>
+        </div>
+      </div>`;
+    }).join('') : '<p class="muted">Koi goal nahi.</p>';
+  }
+
+  async function addAccount() {
+    const name = $('accName').value.trim();
+    const open = parseFloat($('accOpen').value) || 0;
+    if (!name) return toast('Account ka naam daalo.', true);
+    const { error } = await sb.from('accounts').insert({
+      user_id: currentUser.id, name, account_type: $('accType').value, opening_balance: open
+    });
+    if (error) throw error;
+    $('accName').value = '';
+    $('accOpen').value = '0';
+    toast('Account add ho gaya ✔');
+    await loadLookups();
+    await loadMoney();
+  }
+
+  async function archiveAccount(id) {
+    if (!confirm('Ye account archive karna hai? Purani entries safe rahengi.')) return;
+    const { error } = await sb.from('accounts').update({ is_archived: true }).eq('id', id);
+    if (error) throw error;
+    await loadLookups();
+    await loadMoney();
+  }
+
+  async function addCategory() {
+    const name = $('catName').value.trim();
+    if (!name) return toast('Category ka naam daalo.', true);
+    const { error } = await sb.from('categories').insert({
+      user_id: currentUser.id, name, group_name: $('catGroup').value, icon: 'circle'
+    });
+    if (error) throw error;
+    $('catName').value = '';
+    toast('Category add ho gayi ✔');
+    await loadLookups();
+    await loadMoney();
+  }
+
+  async function renameCategory(id) {
+    const current = (allCategories.find((c) => c.id === id) || {}).name || '';
+    const name = prompt('Naya naam:', current);
+    if (!name || !name.trim()) return;
+    const { error } = await sb.from('categories').update({ name: name.trim() }).eq('id', id);
+    if (error) throw error;
+    await loadLookups();
+    await loadMoney();
+  }
+
+  async function archiveCategory(id) {
+    if (!confirm('Ye category archive karni hai?')) return;
+    const { error } = await sb.from('categories').update({ is_archived: true }).eq('id', id);
+    if (error) throw error;
+    await loadLookups();
+    await loadMoney();
+  }
+
+  async function addGoal() {
+    const name = $('goalName').value.trim();
+    const target = parseFloat($('goalTarget').value);
+    const date = $('goalDate').value || null;
+    if (!name || !target || target <= 0) return toast('Goal ka naam aur target daalo.', true);
+    const { error } = await sb.from('savings_goals').insert({
+      user_id: currentUser.id, name, target_amount: target, target_date: date
+    });
+    if (error) throw error;
+    ['goalName', 'goalTarget', 'goalDate'].forEach((id) => { $(id).value = ''; });
+    toast('Goal add ho gaya ✔');
+    await loadMoney();
+  }
+
+  async function addToGoal(id) {
+    const amt = parseFloat($('goal-' + id).value);
+    if (!amt || amt <= 0) return toast('Jama amount daalo.', true);
+    const { data: g, error } = await sb.from('savings_goals').select('target_amount,saved_amount').eq('id', id).single();
+    if (error) throw error;
+    const newSaved = Math.min(Number(g.saved_amount) + amt, Number(g.target_amount));
+    const { error: upErr } = await sb.from('savings_goals').update({ saved_amount: newSaved }).eq('id', id);
+    if (upErr) throw upErr;
+    toast(newSaved >= Number(g.target_amount) ? 'Goal poora ho gaya! 🎉' : 'Jama ho gaya ✔');
+    await loadMoney();
+  }
+
+  async function deleteGoal(id) {
+    if (!confirm('Ye goal hatana hai?')) return;
+    const { error } = await sb.from('savings_goals').update({ is_archived: true }).eq('id', id);
+    if (error) throw error;
+    await loadMoney();
+  }
+
+  // ---------- SETTINGS ----------
+  function loadSettingsForm() {
+    $('setSalary').value = settings.monthly_salary || '';
+    $('setSalaryDay').value = settings.salary_day || '';
+    $('setSavePct').value = settings.savings_target_percent ?? 20;
+    $('setRule').value = settings.planning_rule || 'custom';
+    $('setRemBill').checked = !!settings.reminder_bill_due;
+    $('setRemLoan').checked = !!settings.reminder_loan_due;
+    $('setRemBudget').checked = !!settings.reminder_budget_80;
+  }
+
+  async function saveSettings() {
+    const pct = parseFloat($('setSavePct').value);
+    const day = parseInt($('setSalaryDay').value, 10);
+    if (pct < 0 || pct > 100) return toast('Savings % 0 se 100 ke beech hona chahiye.', true);
+    if ($('setSalaryDay').value && !(day >= 1 && day <= 31)) return toast('Salary day 1 se 31 ke beech daalo.', true);
+    const row = {
+      user_id: currentUser.id,
+      monthly_salary: parseFloat($('setSalary').value) || 0,
+      salary_day: $('setSalaryDay').value ? day : null,
+      savings_target_percent: pct || 0,
+      planning_rule: $('setRule').value,
+      reminder_bill_due: $('setRemBill').checked,
+      reminder_loan_due: $('setRemLoan').checked,
+      reminder_budget_80: $('setRemBudget').checked
+    };
+    const { error } = await sb.from('settings').upsert(row, { onConflict: 'user_id' });
+    if (error) throw error;
+    await loadSettings();
+    toast('Settings save ho gayi ✔');
+  }
+
+  // ---------- TABS & MONTH ----------
   async function showTab(name) {
+    activeTab = name;
     document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
     document.querySelectorAll('.tab-section').forEach((s) => s.classList.toggle('hidden', s.id !== 'tab-' + name));
-    showMsg($('globalMsg'), '');
-    if (name === 'home') await run($('globalMsg'), () => Promise.all([loadMonthSummary(), loadRecent()]));
-    if (name === 'bills') await run($('globalMsg'), loadBills);
-    if (name === 'loans') await run($('globalMsg'), loadLoans);
-    if (name === 'budget') await run($('globalMsg'), loadBudget);
+    $('monthBar').classList.toggle('hidden', !['home', 'bills', 'budget'].includes(name));
+    $('monthLabel').textContent = curMonth().label;
+    toast('');
+
+    const loaders = {
+      home: loadHome, bills: loadBills, loans: loadLoans,
+      budget: loadBudget, money: loadMoney, settings: async () => loadSettingsForm()
+    };
+    if (loaders[name]) await run(loaders[name]);
   }
+
+  function changeMonth(delta) {
+    monthOffset += delta;
+    if (monthOffset > 0) monthOffset = 0; // no future months
+    showTab(activeTab);
+  }
+
+  // ---------- ACTIONS (buttons inside lists) ----------
+  const actions = {
+    editTx: (id) => editTx(id),
+    delTx: (id) => deleteTx(id),
+    paidFixed: (id) => paidFixed(id),
+    unpaidFixed: (id, el) => unpaidFixed(id, el.dataset.tx || null),
+    delFixed: (id) => deleteFixed(id),
+    paidPx: (id) => payPeriodic(id),
+    payLoan: (id) => payLoan(id),
+    delLoan: (id) => deleteLoan(id),
+    archAcc: (id) => archiveAccount(id),
+    renameCat: (id) => renameCategory(id),
+    archCat: (id) => archiveCategory(id),
+    addGoal: (id) => addToGoal(id),
+    delGoal: (id) => deleteGoal(id)
+  };
+
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-act]');
+    if (!el) return;
+    const fn = actions[el.dataset.act];
+    if (fn) run(() => fn(el.dataset.id, el));
+  });
 
   // ---------- WIRING ----------
   $('loginBtn').onclick = logIn;
   $('signupBtn').onclick = signUp;
+  $('resetBtn').onclick = () => run(resetPassword);
   $('logoutBtn').onclick = logOut;
-  $('saveBtn').onclick = () => run($('saveMsg'), saveEntry);
+
+  $('saveBtn').onclick = () => run(saveEntry);
+  $('cancelEdit').onclick = () => { resetAddForm(); showTab('home'); };
   $('typeExpense').onclick = () => setType('expense');
   $('typeIncome').onclick = () => setType('income');
   $('typeTransfer').onclick = () => setType('transfer');
-  $('fxAdd').onclick = () => run($('fxMsg'), addFixed);
-  $('pxAdd').onclick = () => run($('pxMsg'), addPeriodic);
-  $('loanAdd').onclick = () => run($('loanAddMsg'), addLoan);
+
+  $('searchBox').oninput = renderList;
+  $('typeFilter').onchange = renderList;
+  $('exportBtn').onclick = exportCsv;
+  $('prevMonth').onclick = () => changeMonth(-1);
+  $('nextMonth').onclick = () => changeMonth(1);
+
+  $('fxAdd').onclick = () => run(addFixed);
+  $('pxAdd').onclick = () => run(addPeriodic);
+  $('loanAdd').onclick = () => run(addLoan);
   $('loanDirLent').onclick = () => setLoanDirection('lent');
   $('loanDirBorrowed').onclick = () => setLoanDirection('borrowed');
-  $('budgetSave').onclick = () => run($('budgetMsg'), saveBudget);
+  $('budgetSave').onclick = () => run(saveBudget);
+  $('accAdd').onclick = () => run(addAccount);
+  $('catAdd').onclick = () => run(addCategory);
+  $('goalAdd').onclick = () => run(addGoal);
+  $('setSave').onclick = () => run(saveSettings);
 
   document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
-
-  // Delegated clicks for buttons created inside lists
-  document.addEventListener('click', (e) => {
-    const t = e.target;
-    if (t.dataset && t.dataset.delFx) return run($('fxMsg'), () => deleteFixed(t.dataset.delFx));
-    if (t.dataset && t.dataset.payPx) return run($('pxMsg'), () => payPeriodic(t.dataset.payPx));
-    if (t.dataset && t.dataset.payLoan) return run($('loanMsg'), () => payLoan(t.dataset.payLoan));
-  });
 
   sb.auth.onAuthStateChange(async (_event, session) => {
     currentUser = session ? session.user : null;
@@ -656,15 +1205,17 @@
     $('appScreen').classList.toggle('hidden', !currentUser);
     $('logoutBtn').classList.toggle('hidden', !currentUser);
     if (currentUser) {
+      monthOffset = 0;
       $('date').value = todayIso();
       $('loanDate').value = todayIso();
-      setType('expense');
+      resetAddForm();
       setLoanDirection('lent');
       try {
+        await loadSettings();
         await loadLookups();
         await showTab('home');
       } catch (e) {
-        showMsg($('globalMsg'), 'Data load nahi hua: ' + e.message, true);
+        toast('Data load nahi hua: ' + e.message, true);
       }
     }
   });
