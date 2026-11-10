@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#2f6f5e" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <title>moneyhold</title>
+  <style>
+    :root { --bg:#f5f7f6; --card:#ffffff; --text:#1d2b27; --muted:#6b7b76; --brand:#2f6f5e; --danger:#b3261e; --ok:#1e7a3c; --border:#dfe6e3; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--text); padding: env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px); }
+    header { background:var(--brand); color:#fff; padding:16px; display:flex; justify-content:space-between; align-items:center; }
+    header h1 { font-size:20px; margin:0; }
+    main { max-width:520px; margin:0 auto; padding:16px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:16px; }
+    h2 { font-size:17px; margin:0 0 12px; }
+    h3 { font-size:15px; margin:14px 0 8px; color:var(--brand); }
+    label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
+    input, select, button { width:100%; font-size:16px; padding:12px; border-radius:8px; border:1px solid var(--border); font-family:inherit; background:#fff; color:var(--text); }
+    button { background:var(--brand); color:#fff; border:none; font-weight:600; margin-top:14px; cursor:pointer; }
+    button.secondary { background:#fff; color:var(--brand); border:1px solid var(--brand); }
+    button.small { width:auto; padding:6px 10px; font-size:13px; margin:0; }
+    button:disabled { opacity:.6; }
+    .row { display:flex; gap:10px; }
+    .row > * { flex:1; }
+    .toggle { display:flex; gap:8px; margin-top:6px; }
+    .toggle button { margin:0; background:#fff; color:var(--text); border:1px solid var(--border); }
+    .toggle button.active { background:var(--brand); color:#fff; border-color:var(--brand); }
+    .tabs { display:flex; gap:6px; overflow-x:auto; padding:10px 16px; background:#fff; border-bottom:1px solid var(--border); }
+    .tab { width:auto; flex:none; margin:0; background:#fff; color:var(--text); border:1px solid var(--border); padding:8px 12px; font-size:14px; }
+    .tab.active { background:var(--brand); color:#fff; border-color:var(--brand); }
+    .stat { display:flex; justify-content:space-between; padding:6px 0; font-size:15px; }
+    .stat b { font-variant-numeric: tabular-nums; }
+    .income { color:var(--ok); }
+    .expense { color:var(--danger); }
+    .entry { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); font-size:14px; gap:8px; }
+    .entry:last-child { border-bottom:none; }
+    .entry small { color:var(--muted); display:block; }
+    .budget-row { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); }
+    .budget-row input { width:130px; }
+    .msg { font-size:14px; margin-top:10px; min-height:18px; }
+    .msg.error { color:var(--danger); }
+    .hidden { display:none !important; }
+    .muted { color:var(--muted); font-size:14px; }
+    .total { font-weight:700; text-align:right; margin-top:8px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>moneyhold</h1>
+  <button id="logoutBtn" class="secondary hidden" style="width:auto;margin:0;padding:8px 12px;font-size:14px;">Logout</button>
+</header>
+
+<main>
+  <!-- LOGIN SCREEN -->
+  <section id="authScreen" class="card hidden">
+    <h2>Login / Sign up</h2>
+    <label>Email</label>
+    <input id="email" type="email" autocomplete="email" />
+    <label>Password (kam se kam 6 characters)</label>
+    <input id="password" type="password" autocomplete="current-password" />
+    <div class="row">
+      <button id="loginBtn">Login</button>
+      <button id="signupBtn" class="secondary">Sign up</button>
+    </div>
+    <div id="authMsg" class="msg"></div>
+  </section>
+</main>
+
+<!-- APP SCREEN -->
+<div id="appScreen" class="hidden">
+  <nav class="tabs">
+    <button class="tab active" data-tab="home">Home</button>
+    <button class="tab" data-tab="add">Add</button>
+    <button class="tab" data-tab="bills">Bills</button>
+    <button class="tab" data-tab="loans">Loans</button>
+    <button class="tab" data-tab="budget">Budget</button>
+  </nav>
+
+  <main>
+    <div id="globalMsg" class="msg error"></div>
+
+    <!-- HOME -->
+    <section id="tab-home" class="tab-section">
+      <div class="card">
+        <h2 id="monthTitle">Is mahine ka hisaab</h2>
+        <div class="stat"><span>Kamaai (income)</span><b id="totalIncome" class="income">₹0</b></div>
+        <div class="stat"><span>Kharcha (expense)</span><b id="totalExpense" class="expense">₹0</b></div>
+        <div class="stat"><span>Bacha hua</span><b id="totalLeft">₹0</b></div>
+      </div>
+      <div class="card">
+        <h2>Recent entries</h2>
+        <div id="entries"><p class="muted">Abhi koi entry nahi hai.</p></div>
+      </div>
+    </section>
+
+    <!-- ADD -->
+    <section id="tab-add" class="tab-section hidden">
+      <div class="card">
+        <h2>Nayi entry</h2>
+        <div class="toggle">
+          <button id="typeExpense" class="active">Kharcha</button>
+          <button id="typeIncome">Kamaai</button>
+          <button id="typeTransfer">Transfer</button>
+        </div>
+
+        <label>Amount (₹)</label>
+        <input id="amount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="e.g. 50" />
+
+        <label>Date</label>
+        <input id="date" type="date" />
+
+        <div class="row">
+          <div>
+            <label id="fromLabel">Account</label>
+            <select id="accountSelect" class="acc-select"></select>
+          </div>
+          <div id="toAccountWrap" class="hidden">
+            <label>Kis account mein</label>
+            <select id="toAccountSelect" class="acc-select"></select>
+          </div>
+          <div id="categoryWrap">
+            <label>Category</label>
+            <select id="categorySelect" class="cat-select"></select>
+          </div>
+        </div>
+
+        <label>Note (optional)</label>
+        <input id="note" maxlength="280" placeholder="e.g. chai, petrol" />
+
+        <button id="saveBtn">Save</button>
+        <div id="saveMsg" class="msg"></div>
+      </div>
+    </section>
+
+    <!-- BILLS -->
+    <section id="tab-bills" class="tab-section hidden">
+      <div class="card">
+        <h2>Fixed kharche (har mahine)</h2>
+        <div id="fxList"></div>
+        <div class="total">Total: <span id="fxTotal">₹0</span></div>
+        <h3>Naya fixed kharcha</h3>
+        <label>Naam (rent, EMI, bijli)</label>
+        <input id="fxName" maxlength="80" />
+        <div class="row">
+          <div><label>Amount (₹)</label><input id="fxAmount" type="number" min="0" step="0.01" /></div>
+          <div><label>Due day (1-31)</label><input id="fxDay" type="number" min="1" max="31" /></div>
+        </div>
+        <label>Account</label>
+        <select id="fxAccount" class="acc-select"></select>
+        <button id="fxAdd">Add fixed kharcha</button>
+        <div id="fxMsg" class="msg"></div>
+      </div>
+
+      <div class="card">
+        <h2>Periodic kharche (2/3/6 mahine wale)</h2>
+        <div id="pxList"></div>
+        <h3>Naya periodic kharcha</h3>
+        <label>Naam (recharge, insurance)</label>
+        <input id="pxName" maxlength="80" />
+        <div class="row">
+          <div><label>Amount (₹)</label><input id="pxAmount" type="number" min="0" step="0.01" /></div>
+          <div><label>Har kitne mahine</label><input id="pxEvery" type="number" min="1" max="60" placeholder="3" /></div>
+        </div>
+        <div class="row">
+          <div><label>Agli due date</label><input id="pxNext" type="date" /></div>
+          <div><label>Account</label><select id="pxAccount" class="acc-select"></select></div>
+        </div>
+        <button id="pxAdd">Add periodic kharcha</button>
+        <div id="pxMsg" class="msg"></div>
+      </div>
+    </section>
+
+    <!-- LOANS -->
+    <section id="tab-loans" class="tab-section hidden">
+      <div class="card">
+        <h2>Udhaar ka hisaab</h2>
+        <div class="stat"><span>Mujhe wapas aane hain</span><b id="loanLent" class="income">₹0</b></div>
+        <div class="stat"><span>Mujhe wapas dene hain</span><b id="loanBorrowed" class="expense">₹0</b></div>
+      </div>
+      <div class="card">
+        <h2>Khule udhaar</h2>
+        <div id="loanList"><p class="muted">Koi open udhaar nahi.</p></div>
+        <div id="loanMsg" class="msg"></div>
+      </div>
+      <div class="card">
+        <h2>Naya udhaar</h2>
+        <div class="toggle">
+          <button id="loanDirLent" class="active">Maine diya</button>
+          <button id="loanDirBorrowed">Maine liya</button>
+        </div>
+        <label>Kiska naam</label>
+        <input id="loanPerson" maxlength="80" />
+        <div class="row">
+          <div><label>Amount (₹)</label><input id="loanAmount" type="number" min="0" step="0.01" /></div>
+          <div><label>Date</label><input id="loanDate" type="date" /></div>
+        </div>
+        <label>Wapas kab milega / dena hai (optional)</label>
+        <input id="loanExpected" type="date" />
+        <button id="loanAdd">Save udhaar</button>
+        <div id="loanAddMsg" class="msg"></div>
+      </div>
+    </section>
+
+    <!-- BUDGET -->
+    <section id="tab-budget" class="tab-section hidden">
+      <div class="card">
+        <h2 id="budgetTitle">Is mahine ki budget</h2>
+        <p class="muted">Har category ki limit daalo. Kharch ke saath % dikhega.</p>
+        <div id="budgetList"></div>
+        <button id="budgetSave">Budget save karo</button>
+        <div id="budgetMsg" class="msg"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Supabase library (pinned version) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let currentUser = null;
+  let accounts = [];     // [{id, name, account_type}]
+  let categories = [];   // [{id, name}]
+  let txType = 'expense';
+  let loanDirection = 'lent';
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  const rupees = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+
+  function showMsg(el, text, isError) {
+    el.textContent = text || '';
+    el.className = 'msg' + (isError ? ' error' : '');
+  }
+
+  function isoOf(d) {
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  }
+  function todayIso() { return isoOf(new Date()); }
+
+  function monthRange() {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return { start: isoOf(start), end: isoOf(end), label: now.toLocaleString('en-IN', { month: 'long', year: 'numeric' }) };
+  }
+
+  function addMonths(iso, n) {
+    const [y, m, d] = iso.split('-').map(Number);
+    return isoOf(new Date(y, m - 1 + n, d));
+  }
+
+  function accountType(id) {
+    const a = accounts.find((x) => x.id === id);
+    return a ? a.account_type : null;
+  }
+
+  // Wrap any action so errors show on screen instead of silently failing
+  async function run(msgEl, fn) {
+    try { return await fn(); }
+    catch (e) { showMsg(msgEl, 'Error: ' + (e.message || e), true); return null; }
+  }
+
+  // ---------- AUTH ----------
+  async function signUp() {
+    const email = $('email').value.trim();
+    const password = $('password').value;
+    showMsg($('authMsg'), 'Account ban raha hai...');
+    const { error } = await sb.auth.signUp({ email, password });
+    if (error) return showMsg($('authMsg'), error.message, true);
+    showMsg($('authMsg'), 'Account ban gaya. Ab Login karo.');
+  }
+
+  async function logIn() {
+    const email = $('email').value.trim();
+    const password = $('password').value;
+    showMsg($('authMsg'), 'Login ho raha hai...');
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) return showMsg($('authMsg'), error.message, true);
+  }
+
+  async function logOut() { await sb.auth.signOut(); }
+
+  // ---------- LOOKUPS ----------
+  async function loadLookups() {
+    const [acc, cat] = await Promise.all([
+      sb.from('accounts').select('id,name,account_type').eq('is_archived', false).order('name'),
+      sb.from('categories').select('id,name').eq('is_archived', false).order('name')
+    ]);
+    if (acc.error) throw acc.error;
+    if (cat.error) throw cat.error;
+    accounts = acc.data;
+    categories = cat.data;
+
+    const accOpts = accounts.map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
+    document.querySelectorAll('.acc-select').forEach((el) => { el.innerHTML = accOpts; });
+    document.querySelectorAll('.cat-select').forEach((el) => {
+      el.innerHTML = '<option value="">-- None --</option>' +
+        categories.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+    });
+    $('toAccountSelect').selectedIndex = accounts.length > 1 ? 1 : 0;
+  }
+
+  // ---------- HOME ----------
+  async function loadMonthSummary() {
+    const m = monthRange();
+    $('monthTitle').textContent = `${m.label} ka hisaab`;
+    const { data, error } = await sb.from('transactions')
+      .select('amount,transaction_type')
+      .gte('transaction_date', m.start)
+      .lte('transaction_date', m.end)
+      .neq('transaction_type', 'transfer');
+    if (error) throw error;
+
+    let income = 0, expense = 0;
+    data.forEach((t) => t.transaction_type === 'income' ? income += Number(t.amount) : expense += Number(t.amount));
+    $('totalIncome').textContent = rupees(income);
+    $('totalExpense').textContent = rupees(expense);
+    $('totalLeft').textContent = rupees(income - expense);
+    $('totalLeft').className = (income - expense) >= 0 ? 'income' : 'expense';
+  }
+
+  async function loadRecent() {
+    const { data, error } = await sb.from('transactions')
+      .select('id,amount,transaction_type,transaction_date,note,categories(name)')
+      .order('transaction_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(15);
+    if (error) throw error;
+
+    const box = $('entries');
+    if (!data.length) { box.innerHTML = '<p class="muted">Abhi koi entry nahi hai.</p>'; return; }
+    box.innerHTML = data.map((t) => {
+      const label = t.transaction_type === 'transfer' ? 'Transfer'
+        : (t.categories && t.categories.name) || (t.transaction_type === 'income' ? 'Kamaai' : 'Kharcha');
+      const sub = [t.transaction_date, t.note].filter(Boolean).join(' • ');
+      const sign = t.transaction_type === 'income' ? '+' : (t.transaction_type === 'transfer' ? '' : '-');
+      const cls = t.transaction_type === 'income' ? 'income' : (t.transaction_type === 'transfer' ? '' : 'expense');
+      return `<div class="entry"><div><div>${esc(label)}</div><small>${esc(sub)}</small></div>
+              <b class="${cls}">${sign}${rupees(t.amount)}</b></div>`;
+    }).join('');
+  }
+
+  // ---------- ADD ENTRY ----------
+  function setType(t) {
+    txType = t;
+    $('typeExpense').classList.toggle('active', t === 'expense');
+    $('typeIncome').classList.toggle('active', t === 'income');
+    $('typeTransfer').classList.toggle('active', t === 'transfer');
+    $('toAccountWrap').classList.toggle('hidden', t !== 'transfer');
+    $('categoryWrap').classList.toggle('hidden', t === 'transfer');
+    $('fromLabel').textContent = t === 'transfer' ? 'Kis account se' : 'Account';
+  }
+
+  async function saveEntry() {
+    const amount = parseFloat($('amount').value);
+    if (!amount || amount <= 0) return showMsg($('saveMsg'), 'Amount sahi daalo (0 se zyada).', true);
+
+    const accountId = $('accountSelect').value;
+    if (!accountId) return showMsg($('saveMsg'), 'Account chuno.', true);
+
+    const payload = {
+      user_id: currentUser.id,
+      client_id: crypto.randomUUID(),
+      transaction_type: txType,
+      amount: amount,
+      transaction_date: $('date').value || todayIso(),
+      account_id: accountId,
+      payment_mode: accountType(accountId),
+      category_id: null,
+      note: $('note').value.trim() || null
+    };
+
+    if (txType === 'transfer') {
+      const dest = $('toAccountSelect').value;
+      if (!dest || dest === accountId) return showMsg($('saveMsg'), 'Transfer ke liye do alag accounts chuno.', true);
+      payload.destination_account_id = dest;
+    } else {
+      payload.category_id = $('categorySelect').value || null;
+    }
+
+    $('saveBtn').disabled = true;
+    const { error } = await sb.from('transactions').insert(payload);
+    $('saveBtn').disabled = false;
+
+    if (error) return showMsg($('saveMsg'), 'Save nahi hua: ' + error.message, true);
+
+    showMsg($('saveMsg'), 'Save ho gaya ✔');
+    $('amount').value = '';
+    $('note').value = '';
+    await loadMonthSummary();
+  }
+
+  // ---------- BILLS ----------
+  async function loadBills() {
+    const [fx, px] = await Promise.all([
+      sb.from('fixed_expenses').select('id,name,amount,due_day').eq('is_active', true).order('due_day'),
+      sb.from('periodic_expenses').select('id,name,amount,every_n_months,next_due_date').eq('is_active', true).order('next_due_date')
+    ]);
+    if (fx.error) throw fx.error;
+    if (px.error) throw px.error;
+
+    $('fxList').innerHTML = fx.data.length ? fx.data.map((f) => `
+      <div class="entry">
+        <div><div>${esc(f.name)}</div><small>Har mahine ${f.due_day} tareekh</small></div>
+        <div style="text-align:right"><b class="expense">${rupees(f.amount)}</b><br>
+          <button class="small secondary" data-del-fx="${f.id}">Hatao</button></div>
+      </div>`).join('') : '<p class="muted">Koi fixed kharcha nahi.</p>';
+    $('fxTotal').textContent = rupees(fx.data.reduce((s, f) => s + Number(f.amount), 0));
+
+    $('pxList').innerHTML = px.data.length ? px.data.map((p) => `
+      <div class="entry">
+        <div><div>${esc(p.name)}</div><small>Agli due: ${esc(p.next_due_date)} • har ${p.every_n_months} mahine</small></div>
+        <div style="text-align:right"><b class="expense">${rupees(p.amount)}</b><br>
+          <button class="small" data-pay-px="${p.id}">Paid</button></div>
+      </div>`).join('') : '<p class="muted">Koi periodic kharcha nahi.</p>';
+  }
+
+  async function addFixed() {
+    const name = $('fxName').value.trim();
+    const amount = parseFloat($('fxAmount').value);
+    const day = parseInt($('fxDay').value, 10);
+    const accountId = $('fxAccount').value;
+    if (!name || !amount || amount <= 0) return showMsg($('fxMsg'), 'Naam aur amount daalo.', true);
+    if (!(day >= 1 && day <= 31)) return showMsg($('fxMsg'), 'Due day 1 se 31 ke beech honi chahiye.', true);
+    const { error } = await sb.from('fixed_expenses').insert({
+      user_id: currentUser.id, name, amount, due_day: day,
+      account_id: accountId || null, payment_mode: accountType(accountId) || 'bank'
+    });
+    if (error) return showMsg($('fxMsg'), error.message, true);
+    ['fxName', 'fxAmount', 'fxDay'].forEach((id) => $(id).value = '');
+    showMsg($('fxMsg'), 'Add ho gaya ✔');
+    await loadBills();
+  }
+
+  async function deleteFixed(id) {
+    const { error } = await sb.from('fixed_expenses').update({ is_active: false }).eq('id', id);
+    if (error) return showMsg($('fxMsg'), error.message, true);
+    await loadBills();
+  }
+
+  async function addPeriodic() {
+    const name = $('pxName').value.trim();
+    const amount = parseFloat($('pxAmount').value);
+    const every = parseInt($('pxEvery').value, 10);
+    const next = $('pxNext').value;
+    const accountId = $('pxAccount').value;
+    if (!name || !amount || amount <= 0) return showMsg($('pxMsg'), 'Naam aur amount daalo.', true);
+    if (!(every >= 1 && every <= 60)) return showMsg($('pxMsg'), 'Har kitne mahine (1-60) daalo.', true);
+    if (!next) return showMsg($('pxMsg'), 'Agli due date chuno.', true);
+    const { error } = await sb.from('periodic_expenses').insert({
+      user_id: currentUser.id, name, amount, every_n_months: every, next_due_date: next,
+      account_id: accountId || null, payment_mode: accountType(accountId) || 'upi'
+    });
+    if (error) return showMsg($('pxMsg'), error.message, true);
+    ['pxName', 'pxAmount', 'pxEvery', 'pxNext'].forEach((id) => $(id).value = '');
+    showMsg($('pxMsg'), 'Add ho gaya ✔');
+    await loadBills();
+  }
+
+  // Marks a periodic bill as paid: records an expense and moves the due date forward
+  async function payPeriodic(id) {
+    const { data: p, error } = await sb.from('periodic_expenses').select('*').eq('id', id).single();
+    if (error) throw error;
+    if (!p.account_id) return showMsg($('pxMsg'), 'Is kharche ka account set nahi hai.', true);
+
+    const { error: txErr } = await sb.from('transactions').insert({
+      user_id: currentUser.id,
+      client_id: crypto.randomUUID(),
+      transaction_type: 'expense',
+      amount: p.amount,
+      transaction_date: todayIso(),
+      account_id: p.account_id,
+      payment_mode: accountType(p.account_id) || p.payment_mode,
+      category_id: p.category_id,
+      note: p.name
+    });
+    if (txErr) return showMsg($('pxMsg'), txErr.message, true);
+
+    const { error: upErr } = await sb.from('periodic_expenses')
+      .update({ next_due_date: addMonths(p.next_due_date, p.every_n_months) }).eq('id', id);
+    if (upErr) return showMsg($('pxMsg'), upErr.message, true);
+
+    showMsg($('pxMsg'), 'Paid ✔ Agli due date aage badh gayi.');
+    await Promise.all([loadBills(), loadMonthSummary()]);
+  }
+
+  // ---------- LOANS ----------
+  async function loadLoans() {
+    const { data, error } = await sb.from('loans')
+      .select('id,person_name,direction,amount,settled_amount,balance_amount,expected_date')
+      .eq('is_closed', false)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+
+    let lent = 0, borrowed = 0;
+    data.forEach((l) => l.direction === 'lent' ? lent += Number(l.balance_amount) : borrowed += Number(l.balance_amount));
+    $('loanLent').textContent = rupees(lent);
+    $('loanBorrowed').textContent = rupees(borrowed);
+
+    $('loanList').innerHTML = data.length ? data.map((l) => `
+      <div class="entry">
+        <div style="flex:1">
+          <div>${esc(l.person_name)} <small>(${l.direction === 'lent' ? 'Maine diya' : 'Maine liya'})</small></div>
+          <small>Baaki: ${rupees(l.balance_amount)} of ${rupees(l.amount)}${l.expected_date ? ' • date: ' + esc(l.expected_date) : ''}</small>
+          <div class="row" style="margin-top:6px">
+            <input type="number" min="0" step="0.01" placeholder="Kitna aaya/diya" id="pay-${l.id}" style="padding:8px" />
+            <button class="small" style="margin:0;width:auto" data-pay-loan="${l.id}">Jama</button>
+          </div>
+        </div>
+      </div>`).join('') : '<p class="muted">Koi open udhaar nahi.</p>';
+  }
+
+  async function addLoan() {
+    const person = $('loanPerson').value.trim();
+    const amount = parseFloat($('loanAmount').value);
+    const date = $('loanDate').value || todayIso();
+    const expected = $('loanExpected').value || null;
+    if (!person || !amount || amount <= 0) return showMsg($('loanAddMsg'), 'Naam aur amount daalo.', true);
+    const { error } = await sb.from('loans').insert({
+      user_id: currentUser.id, person_name: person, direction: loanDirection,
+      amount, loan_date: date, expected_date: expected
+    });
+    if (error) return showMsg($('loanAddMsg'), error.message, true);
+    ['loanPerson', 'loanAmount', 'loanExpected'].forEach((id) => $(id).value = '');
+    showMsg($('loanAddMsg'), 'Save ho gaya ✔');
+    await loadLoans();
+  }
+
+  async function payLoan(id) {
+    const amt = parseFloat($('pay-' + id).value);
+    if (!amt || amt <= 0) return showMsg($('loanMsg'), 'Jama amount daalo.', true);
+    const { data: l, error } = await sb.from('loans').select('amount,settled_amount').eq('id', id).single();
+    if (error) throw error;
+    const newSettled = Number(l.settled_amount) + amt;
+    if (newSettled > Number(l.amount)) return showMsg($('loanMsg'), 'Itna amount baaki nahi hai.', true);
+    const { error: upErr } = await sb.from('loans')
+      .update({ settled_amount: newSettled, is_closed: newSettled >= Number(l.amount) })
+      .eq('id', id);
+    if (upErr) return showMsg($('loanMsg'), upErr.message, true);
+    showMsg($('loanMsg'), 'Jama ho gaya ✔');
+    await loadLoans();
+  }
+
+  function setLoanDirection(d) {
+    loanDirection = d;
+    $('loanDirLent').classList.toggle('active', d === 'lent');
+    $('loanDirBorrowed').classList.toggle('active', d === 'borrowed');
+  }
+
+  // ---------- BUDGET ----------
+  async function loadBudget() {
+    const m = monthRange();
+    $('budgetTitle').textContent = `${m.label} ki budget`;
+    const [bud, tx] = await Promise.all([
+      sb.from('budgets').select('category_id,amount').eq('month_start', m.start),
+      sb.from('transactions').select('amount,category_id')
+        .eq('transaction_type', 'expense')
+        .gte('transaction_date', m.start)
+        .lte('transaction_date', m.end)
+    ]);
+    if (bud.error) throw bud.error;
+    if (tx.error) throw tx.error;
+
+    const budMap = {};
+    bud.data.forEach((b) => { budMap[b.category_id] = Number(b.amount); });
+    const spent = {};
+    tx.data.forEach((t) => { if (t.category_id) spent[t.category_id] = (spent[t.category_id] || 0) + Number(t.amount); });
+
+    $('budgetList').innerHTML = categories.map((c) => {
+      const limit = budMap[c.id] || 0;
+      const used = spent[c.id] || 0;
+      const pct = limit > 0 ? Math.round((used / limit) * 100) + '%' : '-';
+      const warn = limit > 0 && used > limit ? ' expense' : '';
+      return `<div class="budget-row">
+        <div><div>${esc(c.name)}</div><small class="${warn}">Kharch: ${rupees(used)} • ${pct}</small></div>
+        <input type="number" min="0" step="1" data-bud="${c.id}" data-old="${limit || ''}" value="${limit || ''}" placeholder="Budget ₹" />
+      </div>`;
+    }).join('') || '<p class="muted">Pehle Categories add karo.</p>';
+  }
+
+  async function saveBudget() {
+    const m = monthRange();
+    const inputs = document.querySelectorAll('[data-bud]');
+    const upserts = [];
+    const deletes = [];
+    inputs.forEach((inp) => {
+      const val = parseFloat(inp.value);
+      const hadOld = inp.dataset.old !== '';
+      if (val > 0) {
+        upserts.push({ user_id: currentUser.id, category_id: inp.dataset.bud, month_start: m.start, amount: val });
+      } else if (hadOld) {
+        deletes.push(inp.dataset.bud);
+      }
+    });
+
+    if (upserts.length) {
+      const { error } = await sb.from('budgets').upsert(upserts, { onConflict: 'user_id,category_id,month_start' });
+      if (error) return showMsg($('budgetMsg'), error.message, true);
+    }
+    for (const catId of deletes) {
+      const { error } = await sb.from('budgets').delete()
+        .eq('category_id', catId).eq('month_start', m.start);
+      if (error) return showMsg($('budgetMsg'), error.message, true);
+    }
+    showMsg($('budgetMsg'), 'Budget save ho gaya ✔');
+    await loadBudget();
+  }
+
+  // ---------- TABS ----------
+  async function showTab(name) {
+    document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+    document.querySelectorAll('.tab-section').forEach((s) => s.classList.toggle('hidden', s.id !== 'tab-' + name));
+    showMsg($('globalMsg'), '');
+    if (name === 'home') await run($('globalMsg'), () => Promise.all([loadMonthSummary(), loadRecent()]));
+    if (name === 'bills') await run($('globalMsg'), loadBills);
+    if (name === 'loans') await run($('globalMsg'), loadLoans);
+    if (name === 'budget') await run($('globalMsg'), loadBudget);
+  }
+
+  // ---------- WIRING ----------
+  $('loginBtn').onclick = logIn;
+  $('signupBtn').onclick = signUp;
+  $('logoutBtn').onclick = logOut;
+  $('saveBtn').onclick = () => run($('saveMsg'), saveEntry);
+  $('typeExpense').onclick = () => setType('expense');
+  $('typeIncome').onclick = () => setType('income');
+  $('typeTransfer').onclick = () => setType('transfer');
+  $('fxAdd').onclick = () => run($('fxMsg'), addFixed);
+  $('pxAdd').onclick = () => run($('pxMsg'), addPeriodic);
+  $('loanAdd').onclick = () => run($('loanAddMsg'), addLoan);
+  $('loanDirLent').onclick = () => setLoanDirection('lent');
+  $('loanDirBorrowed').onclick = () => setLoanDirection('borrowed');
+  $('budgetSave').onclick = () => run($('budgetMsg'), saveBudget);
+
+  document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
+
+  // Delegated clicks for buttons created inside lists
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (t.dataset && t.dataset.delFx) return run($('fxMsg'), () => deleteFixed(t.dataset.delFx));
+    if (t.dataset && t.dataset.payPx) return run($('pxMsg'), () => payPeriodic(t.dataset.payPx));
+    if (t.dataset && t.dataset.payLoan) return run($('loanMsg'), () => payLoan(t.dataset.payLoan));
+  });
+
+  sb.auth.onAuthStateChange(async (_event, session) => {
+    currentUser = session ? session.user : null;
+    $('authScreen').classList.toggle('hidden', !!currentUser);
+    $('appScreen').classList.toggle('hidden', !currentUser);
+    $('logoutBtn').classList.toggle('hidden', !currentUser);
+    if (currentUser) {
+      $('date').value = todayIso();
+      $('loanDate').value = todayIso();
+      setType('expense');
+      setLoanDirection('lent');
+      try {
+        await loadLookups();
+        await showTab('home');
+      } catch (e) {
+        showMsg($('globalMsg'), 'Data load nahi hua: ' + e.message, true);
+      }
+    }
+  });
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+</script>
+</body>
+</html>
